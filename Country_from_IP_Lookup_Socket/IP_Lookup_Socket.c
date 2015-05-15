@@ -67,6 +67,7 @@ void My_HTTP_GET(char* http_message, int message_length) {
 
 	if (close(sockfd)== -1) {
 	    perror("Error: Socket can not be closed\n");
+	    exit(1);
 	}
 }
 
@@ -90,15 +91,34 @@ void Locate_My_IP (void) {
 }
 
 void Locate_This_IP (const char* tIP) {
-	//Pass a message for ipinfo.io/ip_adress/city
+	if ( Is_Valid_IP(tIP)!=1 ) {
+		printf("Not a valid IP address\n");
+	}else {
+		char message_city[64]={0};
+		strcpy(message_city,"GET /");
+		strcat(message_city, tIP);
+		char message_country[64]={0};
+		strcpy(message_country,message_city);
+		strcat(message_city,"/city");
+		strcat(message_city, " HTTP/1.1\r\nHost:ipinfo.io\r\n\r\n");
+		int message_length=strlen(message_city);
+		My_HTTP_GET (message_city, message_length);
+
+		strcat(message_country,"/country");
+		strcat(message_country, " HTTP/1.1\r\nHost:ipinfo.io\r\n\r\n");
+		message_length=strlen(message_country);
+		My_HTTP_GET (message_country, message_length);
+	}
 }
 
 int main(int argc, char *argv[]) {
 	if (argc==1) {
 		// If No IP address is entered, just lookuP the IP-address of the machine
-		Locate_My_IP();
+		Locate_My_IP ();
+	} else {
+		//If an IP-address is entered to be located
+		printf ("Locating %s...\n\n", argv [1]);
+		Locate_This_IP (argv [1]);
 	}
 	return 0;
 }
-
-
