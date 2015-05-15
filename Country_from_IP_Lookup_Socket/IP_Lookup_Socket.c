@@ -22,7 +22,7 @@ char Is_Valid_IP (const char* tIP) { //IP in text format
     return result==1;
 }
 
-void My_HTTP_GET(void) {
+void My_HTTP_GET(char* http_message, int message_length) {
 	// Create a socket
 	int sockfd=0;
 	sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -49,31 +49,44 @@ void My_HTTP_GET(void) {
 	    exit(1);
 	}
 
-	char message[64];
-
-	//GET /city HTTP/1.1\r\nHost:ipinfo.io\r\n\r\n
-	strcpy(message,"GET /ip HTTP/1.1\r\nHost:ipinfo.io\r\n\r\n");
-	n=send(sockfd , message , strlen(message) , 0);
+	//HTTP GET
+	n=send(sockfd , http_message , message_length, 0);
 	if (n <0){
 		perror("Error: Sending HTTP GET failed!");
 	    exit(1);
 	}
-	char buffer[600];
-	bzero(buffer,600);
+	char buffer[200];
+	bzero(buffer,200);
 	n = recv(sockfd, (void *)buffer,184,0);
 	if (n ==-1){
 		perror("Error: Reading 1 HTTP RESPONSE failed\n");
 		exit(1);
 	}
 	char* index=strstr(buffer,"\r\n\r\n");
-	printf("Here is your IP-Address:\n%s\n\n\n", index+4);
+	printf("%s\n", index+4);
 
-	close(sockfd);
+	if (close(sockfd)== -1) {
+	    perror("Error: Socket can not be closed\n");
+	}
 }
 
-void My_HTTP_GET () {
-	//Pass a message for ipinfo.io/ip
-	//Pass a message for ipinfo.io/city
+void Locate_My_IP (void) {
+	char message[64]; //for storing the customized HTTTP-message
+	bzero(message,64);
+	//Find the the external ip_address of the machine
+	strcpy(message,"GET /ip HTTP/1.1\r\nHost:ipinfo.io\r\n\r\n");
+	int message_length=strlen(message);
+	My_HTTP_GET (message, message_length);
+
+	bzero(message,64);
+	strcpy(message,"GET /city HTTP/1.1\r\nHost:ipinfo.io\r\n\r\n");
+	message_length=strlen(message);
+	My_HTTP_GET (message, message_length);
+
+	bzero(message,64);
+	strcpy(message,"GET /country HTTP/1.1\r\nHost:ipinfo.io\r\n\r\n");
+	message_length=strlen(message);
+	My_HTTP_GET (message, message_length);
 }
 
 void Locate_This_IP (const char* tIP) {
@@ -83,7 +96,7 @@ void Locate_This_IP (const char* tIP) {
 int main(int argc, char *argv[]) {
 	if (argc==1) {
 		// If No IP address is entered, just lookuP the IP-address of the machine
-		My_HTTP_GET ();
+		Locate_My_IP();
 	}
 	return 0;
 }
