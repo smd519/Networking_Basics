@@ -16,6 +16,10 @@ what periods of the day you use more and less and generate a report or graph tha
 #include <sys/types.h>
 #include <sys/stat.h>
 
+int measurement_period=10;
+short int measurement_interval=3; // measurement_interval-sec
+char total_measurement_points=50; //how many times we record BW
+
 char creat_file_path  (char *filePath, char* net_intf) {
 	strcpy(filePath,"/sys/class/net/");
 	strcat(filePath,net_intf);
@@ -84,10 +88,89 @@ void current_session (char *filePath) {
 	}
 }
 
+char gather_information (char* filePath) {
+	FILE *file = NULL;
+	if ( (file = fopen(filePath, "r") )== NULL ) {
+		perror( "Error_fopen" );
+		return (-1);
+	}
+	FILE *Result_file = fopen("rawdata.txt", "w");
+	if (Result_file== NULL) {
+		printf("Error_fopen\n");
+		exit(1);
+	}
+	char buf[12];//current record
+	int i;
+	printf("***Monitoring Network Interface Metrics***\n");
+	for (i=0; i<total_measurement_points;i++) {//capturing the information as fast and precise as possible
+		if( ( file = fopen( filePath, "r" ) ) == NULL ) {
+			perror( "Error_fopen" );
+			return (-1);
+		}
+		if( fgets(buf, 11, file)==NULL) {
+			perror( "Error_fgets" );
+			return (-1);
+		}
+		fprintf(Result_file, "%s", buf);
+		printf("%d\n",i);
+		bzero(buf,12);
+		sleep(measurement_interval);
+	}
+	if (fclose(file)!=0) {
+		perror("Error_fclose");
+		return (-1);
+	}
+	if (fclose(Result_file)!=0) {
+		perror("Error_fclose");
+		return (-1);
+	}
+	printf("***Monitoring Finished***\n");
+	return 0;
+}
+
+char process_information () {
+	/// Processing the data- we should write a function or even run a separate thread/ when raw data is sleep
+	FILE *Result_file = fopen("rawdata.txt", "r");
+	if (Result_file== NULL) {
+		printf("Error_fopen\n");
+		exit(1);
+	}
+	FILE *Calc_file = fopen("Procdata.txt", "w");
+	if (Result_file== NULL) {
+		printf("Error_fopen\n");
+		exit(1);
+	}
+	char buf[12]={0};
+	int i=0;
+	int t1_data=0, t2_data=0;
+	printf("***Processing the data...***\n");
+	for (i=0; i<total_measurement_points;i++) {//capturing the information as fast and precise as possible
+		if( fgets(buf, 12, Result_file)==NULL) {
+			perror( "Error_fgets" );
+			return (-1);
+		}
+		t2_data=atoi(buf);
+		if (i==0) {
+			t1_data=t2_data;
+		}
+		fprintf(Calc_file, "%d\n", (t2_data-t1_data));
+		printf("%d\t", (t2_data-t1_data));
+		t1_data=t2_data;
+		printf("Interval %d (%d seconds)\n",i, measurement_interval);
+		bzero(buf,12);
+	}
+	if (fclose(Result_file)!=0) {
+	perror("Error_fclose");
+		return (-1);
+	}
+	if (fclose(Calc_file)!=0) {
+		perror("Error_fclose");
+		return (-1);
+	}
+	return 0;
+}
+
 int main (int argc, char* argv[]) {
-	const int measurement_period=1*60*60;
-	const short int measurement_interval=30; // measurement_interval-sec
-	const char total_measurement_points=measurement_period/measurement_interval; //how many times we record BW
 	char filePath[128];
 	if (argc < 2) {
 		printf("Error: Please specify which network interface you would like to monitor\n");
@@ -107,40 +190,11 @@ int main (int argc, char* argv[]) {
 		current_session(filePath);
 		return 0;
 	}
-	FILE *file = NULL;
-	if ( (file = fopen(filePath, "r") )== NULL ) {
-		perror( "Error_fopen" );
-		return (-1);
+	if (gather_information(filePath) ) {
+		return -1;
 	}
-
-	FILE *Result_file = fopen("file.txt", "w");
-	if (Result_file== NULL) {
-		printf("Error_fopen\n");
-		exit(1);
-	}
-	char buf[128];//current record
-	int i;
-	for (i=0; i<total_measurement_points;i++) {
-		if( ( file = fopen( filePath, "r" ) ) == NULL ) {
-			perror( "Error_fopen" );
-			return (-1);
-		}
-		if( fgets(buf, 127, file)==NULL) {
-			perror( "Error_fgets" );
-			return (-1);
-		}
-		buf[511]='\0';
-		printf ("%s",buf);
-		fprintf(Result_file, "%s", buf);
-		sleep(measurement_interval);
-	}
-	if (fclose(file)!=0) {
-	perror("Error_fclose");
-		return (-1);
-	}
-	if (fclose(Result_file)!=0) {
-		perror("Error_fclose");
-		return (-1);
+	if (process_information ()) {
+		return -1;
 	}
 	return 0;
 }
