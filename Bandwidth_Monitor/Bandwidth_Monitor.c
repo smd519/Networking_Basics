@@ -5,7 +5,7 @@
  *      Author: sajjad
  */
 /*Bandwidth Monitor - A small utility program that tracks how much data you have uploaded and
-downloaded from the net during the course of your current online session. See if you can find out
+download from the net during the course of your current online session. See if you can find out
 what periods of the day you use more and less and generate a report or graph that shows it.
 */
 #include <stdlib.h>
@@ -15,12 +15,61 @@ what periods of the day you use more and less and generate a report or graph tha
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 
-int measurement_period=10;
-short int measurement_interval=3; // measurement_interval-sec
-char total_measurement_points=50; //how many times we record BW
+short int measurement_interval=2; // measurement_interval-sec
+char total_measurement_points=0; //how many times we record BW
 
-char creat_file_path  (char *filePath, char* net_intf) {
+char find_intf(char *, char*); //finds if such network interface exist
+char find_intf_information (char *, char*); //finds if such information (upload/download) is available about that specific interface
+void current_session (char *); //intf information for current online session (till-now-information)
+char gather_information (char*); //for specified period if time
+char process_information (); //finds #bytes per 60s interval, max, min, and total network usage
+
+int main (int argc, char* argv[]) {
+	char filePath[128];
+	if (argc < 2) {
+		printf("Error: Please specify which network interface you would like to monitor\n");
+		return -1;
+	}
+	if(find_intf(filePath, argv[1])==-1){
+		return -1;
+	}
+	if (argc<3) {
+		printf("Error: Please specify upload or download\n");
+		return -1;
+	}
+	if (find_intf_information(filePath, argv[2])==-1) {
+		return -1;
+	}
+	if (argc <4 ) {
+		current_session(filePath);
+		return 0;
+	}
+	if (strlen(argv[3])>2) {
+		printf ("Currently, we support only periods less than 24 hours!\n");
+		return -1;
+	}
+	int measurement_period=0;
+	if (strlen(argv[3])==1) {
+		measurement_period=*argv[3]-'0';
+	} else {
+		measurement_period=atoi(argv[3]);
+	}
+	total_measurement_points=20;//measurement_period*60; //sampling every 60sec
+	printf("***Monitoring Network Interface \'%s\' for \'%s' Performance***\n", argv[1], argv[2]);
+	printf("***Sampling will be done every %d seconds, and for %s hours.***\n", measurement_interval, argv[3]);
+	if (gather_information(filePath) ) {
+		return -1;
+	}
+	if (process_information ()) {
+		return -1;
+	}
+	return 0;
+}
+
+
+char find_intf  (char *filePath, char* net_intf) {
 	strcpy(filePath,"/sys/class/net/");
 	strcat(filePath,net_intf);
 	struct stat link_attributes;
@@ -101,7 +150,10 @@ char gather_information (char* filePath) {
 	}
 	char buf[12];//current record
 	int i;
-	printf("***Monitoring Network Interface Metrics***\n");
+	time_t result = time(NULL);
+	struct tm * timeinfo;
+	timeinfo = localtime ( &result );
+	printf("Starting time: %s", asctime(timeinfo));
 	for (i=0; i<total_measurement_points;i++) {//capturing the information as fast and precise as possible
 		if( ( file = fopen( filePath, "r" ) ) == NULL ) {
 			perror( "Error_fopen" );
@@ -112,10 +164,14 @@ char gather_information (char* filePath) {
 			return (-1);
 		}
 		fprintf(Result_file, "%s", buf);
-		printf("%d\n",i);
+		printf(".");
+		fflush(stdout);
 		bzero(buf,12);
 		sleep(measurement_interval);
 	}
+	result = time(NULL);
+	timeinfo = localtime ( &result );
+	printf("\nFinishing time: %s", asctime(timeinfo));
 	if (fclose(file)!=0) {
 		perror("Error_fclose");
 		return (-1);
@@ -124,7 +180,6 @@ char gather_information (char* filePath) {
 		perror("Error_fclose");
 		return (-1);
 	}
-	printf("***Monitoring Finished***\n");
 	return 0;
 }
 
@@ -143,7 +198,9 @@ char process_information () {
 	char buf[12]={0};
 	int i=0;
 	int t1_data=0, t2_data=0;
-	printf("***Processing the data...***\n");
+	int Total=0, min=0, max=0;
+	int usage=0;
+	printf("Processing the data...\n");
 	for (i=0; i<total_measurement_points;i++) {//capturing the information as fast and precise as possible
 		if( fgets(buf, 12, Result_file)==NULL) {
 			perror( "Error_fgets" );
@@ -152,13 +209,28 @@ char process_information () {
 		t2_data=atoi(buf);
 		if (i==0) {
 			t1_data=t2_data;
+			Total=t2_data;
 		}
-		fprintf(Calc_file, "%d\n", (t2_data-t1_data));
-		printf("%d\t", (t2_data-t1_data));
+		usage=t2_data-t1_data;
+		if (i==1) {
+			min=usage;
+		}
+		if (usage>max) {
+			max=usage;
+		} else if (usage<=min) {
+			min=usage;
+		}
+		fprintf(Calc_file, "%d\n", usage);
+		printf("%d\tbytes\t", usage);
 		t1_data=t2_data;
 		printf("Interval %d (%d seconds)\n",i, measurement_interval);
 		bzero(buf,12);
 	}
+	Total=t2_data-Total;
+	printf("Total usage: %d bytes\n", Total);
+	printf ("Minimum usage: %d bytes\n",min);
+	printf ("Maximum usage: %d bytes\n",max);
+
 	if (fclose(Result_file)!=0) {
 	perror("Error_fclose");
 		return (-1);
@@ -166,35 +238,6 @@ char process_information () {
 	if (fclose(Calc_file)!=0) {
 		perror("Error_fclose");
 		return (-1);
-	}
-	return 0;
-}
-
-int main (int argc, char* argv[]) {
-	char filePath[128];
-	if (argc < 2) {
-		printf("Error: Please specify which network interface you would like to monitor\n");
-		return -1;
-	}
-	if(creat_file_path(filePath, argv[1])==-1){
-		return -1;
-	}
-	if (argc<3) {
-		printf("Error: Please specify upload or download\n");
-		return -1;
-	}
-	if (find_intf_information(filePath, argv[2])==-1) {
-		return -1;
-	}
-	if (argc <4 ) {
-		current_session(filePath);
-		return 0;
-	}
-	if (gather_information(filePath) ) {
-		return -1;
-	}
-	if (process_information ()) {
-		return -1;
 	}
 	return 0;
 }
