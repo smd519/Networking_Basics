@@ -11,6 +11,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <errno.h>
 
 #define CTRLPORT "21"
 #define DATAPORT "20"
@@ -67,6 +68,53 @@ char create_socket (char* tIP, char* port) {
 	return sockfd;
 }
 
+char port_to_server (int sockfd,char* tIP, short unsigned int port) {
+
+	//return status;
+}
+
+char create_data_socket (int sockfd) {
+	struct sockaddr_in ctrlsock;
+	socklen_t len = sizeof(ctrlsock);
+	if (getsockname(sockfd,(struct sockaddr*) &ctrlsock, &len) < 0) {
+		perror("getsockname");
+	    return -1;
+	}
+	char tIP[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, &(ctrlsock.sin_addr), tIP, INET_ADDRSTRLEN);
+	short unsigned int port=ntohs(ctrlsock.sin_port);
+
+	ctrlsock.sin_port=ctrlsock.sin_port-1;
+
+	int data_sockfd=0;
+	data_sockfd = socket(ctrlsock.sin_family, SOCK_STREAM, 0);
+	if (sockfd < 0) {
+		perror("ERROR: data Socket could not be created!\n");
+		return -1;
+	}
+
+	char status=bind(data_sockfd,(struct sockaddr*) &ctrlsock,len);
+	if (status== -1) {
+		close(sockfd);
+		perror("server: bind");
+		return -1;
+	}
+
+	status=listen(data_sockfd,4);
+	if (status == -1) {
+		perror("listen");
+		return -1;
+	}
+	status=port_to_server (sockfd, tIP, port);
+	if (status == -1) {
+		return -1;
+	}
+	printf("data socket ready and waiting for connections...\n");
+
+	return data_sockfd;
+
+}
+
 char recv_response(int sockfd) {
 	//Receiving msg response
 	char buffer[128];
@@ -110,14 +158,15 @@ char recv_response(int sockfd) {
 char send_command(int sockfd,char* fttp_message, int message_length) {
 	//FTTP MSG
 	int status=send(sockfd , fttp_message , message_length, 0);
-	if (status < message_length) {
-		printf("Error (size of message):Sending message to server failed!\n");
-		return -1;
-	}
 	if (status==-1) {
 		printf("Error:Sending message to server failed!\n");
 		return -1;
 	}
+	if (status < message_length) {
+		printf("Error: Only %d out of %d bytes is sent!\n",status ,message_length);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -139,19 +188,49 @@ char ftp_authenticat (int sockfd) {
 char create_command (char* user_input, char* arg, char* std_message) {
 	char* n=NULL;
 	if (strcmp(user_input,"USER")==0){
+		//login user name
 		sprintf(std_message,"USER %s\r\n",arg);
-	} else if (strstr(user_input,"ls")!=NULL){
+	}
+	else if (strstr(user_input,"PORT")!=NULL){
+		//list remote files
+		sprintf(std_message,"PORT %s\r\n",arg);
+	}
+	else if (strstr(user_input,"ls")!=NULL){
+		//list remote files
 		sprintf(std_message,"LIST\r\n");
-	} else if (strstr(user_input,"pwd")!=NULL){
+	}
+	else if (strstr(user_input,"pwd")!=NULL){
+		//print working directory
 		sprintf(std_message,"PWD\r\n");
-	} else if (strstr(user_input,"cd .. ")!=NULL){
+	}
+	else if (strstr(user_input,"cd .. ")!=NULL){
 		sprintf(std_message,"CDUP\r\n");
-	} else	if ( (n=strstr(user_input,"cd "))!=NULL){
+	}
+	else if ( (n=strstr(user_input,"cd "))!=NULL){
+		//change working directory
 		sprintf(std_message,"CWD %s\r\n",user_input+3);
-	} else	if (strstr(user_input,"help")!=NULL){
-		//better to creat your own help- listing non-raw commands
+	}
+	else if ( (n=strstr(user_input,"mkdir "))!=NULL){
+		//make a remote directory
+		sprintf(std_message,"MKD %s\r\n",user_input+6);
+	}
+	else if ( (n=strstr(user_input,"rmdir "))!=NULL){
+		//remove a remote directory
+		sprintf(std_message,"RMD %s\r\n",user_input+6);
+	}
+	else if ( (n=strstr(user_input,"get "))!=NULL){
+		//retrieve a remote file
+		sprintf(std_message,"RETR %s\r\n",user_input+4);
+	}
+	else if ( (n=strstr(user_input,"delete "))!=NULL){
+		//delete a remote file
+		sprintf(std_message,"DELE %s\r\n",user_input+7);
+	}
+	else if (strstr(user_input,"help")!=NULL){
+		//better to create my own help- listing non-raw commands
 		sprintf(std_message,"HELP\r\n");
-	} else	if(strstr(user_input,"exit") !=NULL || strstr(user_input,"quit") !=NULL || strstr(user_input,"bye") !=NULL) {
+	}
+	else if(strstr(user_input,"exit") !=NULL || strstr(user_input,"quit") !=NULL || strstr(user_input,"bye") !=NULL) {
 		sprintf(std_message,"QUIT\r\n");
 		return 2;
 	}
@@ -184,7 +263,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 		terminate_socket (sockfd);
 	}
-	fflush(stdout);
+
 	char flag=1;
 	char user_input[64];
 	char std_message[70];
@@ -217,6 +296,7 @@ int main(int argc, char *argv[]) {
 			return -1;
 			terminate_socket (sockfd);
 		}
+
 	}
 	terminate_socket (sockfd);
 	return 0;
