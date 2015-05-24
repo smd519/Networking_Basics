@@ -124,7 +124,7 @@ char send_command(int sockfd,char* fttp_message, int message_length) {
 char ftp_authenticat (int sockfd) {
 	char user[16]={0};
 	printf("Name: ");
-	scanf("%s",user);
+	fgets(user, sizeof(user), stdin);
 
 	char credential_message[21]={0};
 	create_command("USER", user, credential_message);
@@ -136,13 +136,23 @@ char ftp_authenticat (int sockfd) {
 	return status;
 }
 
-char create_command (char* std_command, char* arg, char* std_message) {
-	if (arg==NULL) {
-		sprintf(std_message,"%s\r\n",std_command);
-	} else if (strcmp(std_command,"USER")==0){
+char create_command (char* user_input, char* arg, char* std_message) {
+	char* n=NULL;
+	if (strcmp(user_input,"USER")==0){
 		sprintf(std_message,"USER %s\r\n",arg);
-	}
-	if(strcmp(std_command,"exit") == 0 || strcmp(std_command,"quit") == 0 || strcmp(std_command,"bye") == 0) {
+	} else if (strstr(user_input,"ls")!=NULL){
+		sprintf(std_message,"LIST\r\n");
+	} else if (strstr(user_input,"pwd")!=NULL){
+		sprintf(std_message,"PWD\r\n");
+	} else if (strstr(user_input,"cd .. ")!=NULL){
+		sprintf(std_message,"CDUP\r\n");
+	} else	if ( (n=strstr(user_input,"cd "))!=NULL){
+		sprintf(std_message,"CWD %s\r\n",user_input+3);
+	} else	if (strstr(user_input,"help")!=NULL){
+		//better to creat your own help- listing non-raw commands
+		sprintf(std_message,"HELP\r\n");
+	} else	if(strstr(user_input,"exit") !=NULL || strstr(user_input,"quit") !=NULL || strstr(user_input,"bye") !=NULL) {
+		sprintf(std_message,"QUIT\r\n");
 		return 2;
 	}
 	printf("creat_command:%s\n",std_message);
@@ -178,12 +188,13 @@ int main(int argc, char *argv[]) {
 	char flag=1;
 	char user_input[64];
 	char std_message[70];
+
 	while (flag){
 		printf("ftp> ");
 		memset(&user_input,0,64);
-		memset(&std_message,0,64);
+		memset(&std_message,0,70);
 
-		scanf("%s",user_input);
+		fgets(user_input, sizeof(user_input), stdin);
 		printf("User input:%s\n",user_input);
 
 		status=create_command(user_input, NULL,std_message);
