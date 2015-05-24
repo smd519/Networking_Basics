@@ -68,51 +68,46 @@ char create_socket (char* tIP, char* port) {
 	return sockfd;
 }
 
-char port_to_server (int sockfd,char* tIP, short unsigned int port) {
 
-	//return status;
-}
+char recv_dsocket_info (char* buffer,char* tIP, int data_port) {
+	char temp1[4]={0};
+	char * ptr1=strstr(buffer, "(");
+	char * ptr2=strstr(buffer, ",");
+	strncpy(temp1,ptr1+1, ptr2-ptr1-1);
+	strcpy(buffer,ptr2+1);
 
-char create_data_socket (int sockfd) {
-	struct sockaddr_in ctrlsock;
-	socklen_t len = sizeof(ctrlsock);
-	if (getsockname(sockfd,(struct sockaddr*) &ctrlsock, &len) < 0) {
-		perror("getsockname");
-	    return -1;
-	}
-	char tIP[INET_ADDRSTRLEN];
-	inet_ntop(AF_INET, &(ctrlsock.sin_addr), tIP, INET_ADDRSTRLEN);
-	short unsigned int port=ntohs(ctrlsock.sin_port);
+	char temp2[4]={0};
+	ptr1=strstr(buffer, ",");
+	strncpy(temp2,buffer, ptr1-buffer);
+	strcpy(buffer,ptr1+1);
 
-	ctrlsock.sin_port=ctrlsock.sin_port-1;
+	char temp3[4]={0};
+	ptr1=strstr(buffer, ",");
+	strncpy(temp3,buffer, ptr1-buffer);
+	strcpy(buffer,ptr1+1);
 
-	int data_sockfd=0;
-	data_sockfd = socket(ctrlsock.sin_family, SOCK_STREAM, 0);
-	if (sockfd < 0) {
-		perror("ERROR: data Socket could not be created!\n");
-		return -1;
-	}
+	char temp4[4]={0};
+	ptr1=strstr(buffer, ",");
+	strncpy(temp4,buffer, ptr1-buffer);
+	strcpy(buffer,ptr1+1);
+	sprintf(tIP,"%s.%s.%s.%s",temp1, temp2, temp3, temp4);
 
-	char status=bind(data_sockfd,(struct sockaddr*) &ctrlsock,len);
-	if (status== -1) {
-		close(sockfd);
-		perror("server: bind");
-		return -1;
-	}
+	printf("IP=%s\n", tIP);
 
-	status=listen(data_sockfd,4);
-	if (status == -1) {
-		perror("listen");
-		return -1;
-	}
-	status=port_to_server (sockfd, tIP, port);
-	if (status == -1) {
-		return -1;
-	}
-	printf("data socket ready and waiting for connections...\n");
+	char temp5[4]={0};
+	ptr1=strstr(buffer, ",");
+	strncpy(temp5,buffer, ptr1-buffer);
+	strcpy(buffer,ptr1+1);
+	int f_half=atoi(temp5);
 
-	return data_sockfd;
+	char temp6[4]={0};
+	ptr1=strstr(buffer, ")");
+	strncpy(temp6,buffer,ptr1-buffer);
+	int s_half=atoi(temp6);
 
+	data_port=s_half+ f_half*256;
+	printf("PORT=%d , %d, %d\n", f_half, s_half, data_port);
+	return 0;
 }
 
 char recv_response(int sockfd) {
@@ -150,6 +145,13 @@ char recv_response(int sockfd) {
 		if (' '==buffer[3]) {
 			message_flag=0;
 		}
+	}
+	char temp[4]={0};
+	strncpy(temp,buffer,3);
+	if (strstr(temp,"227")) {
+		char tIP[16]={0};
+		int data_port=0;
+		recv_dsocket_info (buffer,tIP,data_port);
 	}
 	printf ("server message fully received.\n");
 	return 0;
@@ -194,6 +196,10 @@ char create_command (char* user_input, char* arg, char* std_message) {
 	else if (strstr(user_input,"PORT")!=NULL){
 		//list remote files
 		sprintf(std_message,"PORT %s\r\n",arg);
+	}
+	else if (strstr(user_input,"passive")!=NULL){
+		//list remote files
+		sprintf(std_message,"PASV\r\n");
 	}
 	else if (strstr(user_input,"ls")!=NULL){
 		//list remote files
@@ -268,6 +274,7 @@ int main(int argc, char *argv[]) {
 	char user_input[64];
 	char std_message[70];
 
+	//create_data_socket (sockfd);
 	while (flag){
 		printf("ftp> ");
 		memset(&user_input,0,64);
