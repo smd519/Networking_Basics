@@ -45,9 +45,11 @@ char create_socket (char* tIP, char* port) {
 	}
 	freeaddrinfo(serv_addr);
 
-	status=recv_response(sockfd);
-	if (status!=0) {
-		return -1;
+	if (strstr(port, "21")!=NULL) {
+		status=recv_response(sockfd);
+		if (status!=0) {
+			return -1;
+		}
 	}
 	return sockfd;
 }
