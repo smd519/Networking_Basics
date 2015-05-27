@@ -1,5 +1,5 @@
 /*
- * create_pasv_dsocket.c
+j * create_pasv_dsocket.c
  *
  *  Created on: 2015-05-25
  *      Author: sajjad
@@ -13,7 +13,8 @@ char create_pasv_dsocket (int sockfd) {
 		return -1;
 		terminate_socket (sockfd);
 	}
-	status=send_command(sockfd,pasv_message, strlen(pasv_message));
+	int message_length=strlen(pasv_message);
+	status=send_command(sockfd,pasv_message, message_length);
 	if (status!=0) {
 		return -1;
 		terminate_socket (sockfd);
@@ -43,7 +44,6 @@ char create_pasv_dsocket (int sockfd) {
 
 char recv_pasv_info(int sockfd, char *buffer) {
 	//Receiving msg response
-	memset(&buffer,0,128);
 	char status=0;
 	status = recv(sockfd, (void *)buffer,127,0);
 	if (status==0) {
