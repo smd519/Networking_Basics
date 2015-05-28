@@ -4,9 +4,7 @@
  *  Created on: 2015-05-24
  *      Author: sajjad
  */
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include <create_command.h>
 
 char create_command (char* user_input, char* arg, char* std_message) {
 	char* n=NULL;
@@ -25,6 +23,7 @@ char create_command (char* user_input, char* arg, char* std_message) {
 	else if (strstr(user_input,"ls")!=NULL){
 		//list remote files
 		sprintf(std_message,"LIST\r\n");
+		return 3;//requires data socket
 	}
 	else if (strstr(user_input,"pwd")!=NULL){
 		//print working directory
@@ -48,6 +47,7 @@ char create_command (char* user_input, char* arg, char* std_message) {
 	else if ( (n=strstr(user_input,"get "))!=NULL){
 		//retrieve a remote file
 		sprintf(std_message,"RETR %s\r\n",user_input+4);
+		return 3;//requires data socket
 	}
 	else if ( (n=strstr(user_input,"delete "))!=NULL){
 		//delete a remote file
@@ -70,10 +70,12 @@ char send_command(int sockfd,char* fttp_message, int message_length) {
 	int status=send(sockfd , fttp_message , message_length, 0);
 	if (status==-1) {
 		printf("Error:Sending message to server failed!\n");
+		terminate_socket(sockfd);
 		return -1;
 	}
 	if (status < message_length) {
 		printf("Error: Only %d out of %d bytes is sent!\n",status ,message_length);
+		terminate_socket (sockfd);
 		return -1;
 	}
 
