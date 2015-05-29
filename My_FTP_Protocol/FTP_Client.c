@@ -28,12 +28,13 @@ int main(int argc, char *argv[]) {
 	}
 	char tIP[16]={0};
 	strcpy(tIP, argv[1]);
+	//creating the control socket
 	int sockfd=0;
 	sockfd=create_socket(tIP, CTRLPORT);
 	if (sockfd==-1) {
 		return -1;
 	}
-
+	//Authentication- Here we only support ftp and anonymous login
 	char status=ftp_authenticat(sockfd);
 	if (status!=0) {
 		return -1;
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]) {
 	while (flag){
 		printf("ftp> ");
 		memset(&user_input,0,64);
+		//receiving user command until user says exit
 		fgets(user_input, sizeof(user_input), stdin);
 		printf("User input:%s\n",user_input);
 		if (strcmp(user_input, "\n")==0) {
@@ -64,13 +66,14 @@ int main(int argc, char *argv[]) {
 		}
 
 		int data_sockfd=0;
-		if (command_status==3) {///if the command needs a data socket
+		if (command_status==3) {///if the command needs a data socket ike ls, or get, ...
+			//creating a data socket which requires asking server for new port
 			data_sockfd=create_pasv_dsocket(sockfd);
 			if (data_sockfd==-1) {
 				return -1;
 			}
 		}
-
+		//sending the control command
 		status=send_command(sockfd,std_message, strlen(std_message));
 		if (status!=0) {
 			return -1;
@@ -78,17 +81,19 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (command_status==3) {///if the command needs a data socket
-			status=recv_response(data_sockfd);
-			if (data_sockfd==-1) {
-				return -1;
-			}
+			//Control socket should be checked twice, once before data socket, once after
 			status=recv_response(sockfd);
 			if (status!=0) {
 				return -1;
 				terminate_socket (sockfd);
 			}
+			//receiving data from data socket
+			status=recv_response(data_sockfd);
+			if (data_sockfd==-1) {
+				return -1;
+			}
 		}
-
+		//receiving data from control socket
 		status=recv_response(sockfd);
 		if (status!=0) {
 			return -1;

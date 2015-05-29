@@ -1,6 +1,9 @@
 /*
  * basics.h
- *
+ * basic functions for setting up a socket connection including:
+ * 	-create the socket
+ * 	- Authentication
+ * 	- closing the socket
  *  Created on: 2015-05-24
  *      Author: sajjad
  */
@@ -15,7 +18,7 @@
 #include <errno.h>
 
 #include <create_command.h>
-#include <recv_ctrl_socket.h>
+#include <recv_response.h>
 
 char create_socket (char* tIP, char* port);
 char ftp_authenticat (int sockfd) ;

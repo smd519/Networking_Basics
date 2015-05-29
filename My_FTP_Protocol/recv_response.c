@@ -1,11 +1,10 @@
 /*
- * recv_ctrl_socket.c
+ * recv_response.c
  *
  *  Created on: 2015-05-24
  *      Author: sajjad
  */
-
-#include <recv_ctrl_socket.h>
+#include <recv_response.h>
 
 char recv_response(int sockfd) {
 	//Receiving msg response
@@ -38,17 +37,11 @@ char recv_response(int sockfd) {
 
 			}
 		}
+
 		printf("%s", buffer);
 		if (' '==buffer[3]) {
 			message_flag=0;
 		}
-	}
-	char temp[4]={0};
-	strncpy(temp,buffer,3);
-	if (strstr(temp,"227")) {
-		char tIP[16]={0};
-		int data_port=0;
-		recv_pd_info(buffer,tIP,data_port);
 	}
 	printf ("server message fully received.\n");
 	return 0;
