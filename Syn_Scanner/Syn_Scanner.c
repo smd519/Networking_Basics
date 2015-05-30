@@ -6,6 +6,10 @@
  */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <ip_header.h>
+#include <tcp_header.h>
+
 
 int main(int argc, char *argv[]) {
 	if (argc<4) {
@@ -19,9 +23,25 @@ int main(int argc, char *argv[]) {
 	char Last_Port[6]={0};
 	strcpy(Last_Port, argv[3]);
 
-	//1. Initialize the tcp/ip Packet
-		//1.1 create the ip header
-		//1.2 initialize the tcp header
+    char packet[4096]={0}; // |--IP_header--| |--TCP-header--| + |--Data--|
+    //1. Initialize the tcp/ip Packet
+	//1.1 create the ip header
+    struct iphdr *ip_header = (struct iphdr *) packet;
+    int status=0;
+    status=create_iph(tIP,ip_header);
+	if (status!=0) {
+		return -1;
+	}
+	//1.2 initialize the tcp header
+    struct tcphdr *tcp_header = (struct tcphdr *) (packet + sizeof (struct ip));
+    status=init_tcph(tcp_header);
+	if (status!=0) {
+		return -1;
+	}
+
+	//1.3 create a raw socket
+	int sockfd=-1;
+	sockfd=create_rawscoket();
 	//2. LOOP:
 		//2.1 create tcp header
 		//2.2 create pesudo header

@@ -1,11 +1,10 @@
 /*
  * ip_header.c
- *
+ *	This functions populates filed of an ipv4-header.
  *  Created on: 2015-05-29
  *      Author: sajjad
  */
 #include <ip_header.h>
-
 
 char create_iph(char * tIP,struct iphdr *ip_header) {
 	struct in_addr  target;
@@ -36,9 +35,8 @@ char create_iph(char * tIP,struct iphdr *ip_header) {
 	ip_header->saddr = source.s_addr;
 	ip_header->daddr = target.s_addr;
 
-	ip_header->check = 0;      //Set to 0 before calculating checksum
-	ip_header->check = cksum (ip_header, ip_header->tot_len);
+	ip_header->check = 0; // Check sum is calculated only for ip header fields except chksum
+	ip_header->check = checksum (ip_header, sizeof(struct iphdr)); // only ip-header, before tcp
 
 	return 0;
 }
-
